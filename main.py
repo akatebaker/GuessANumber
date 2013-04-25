@@ -45,6 +45,8 @@ class MainPage(webapp2.RequestHandler):
         template = jinja_environment.get_template('index.html')
         self.response.out.write(template.render(template_values))
 
+        Updater().sendUpdates()
+
 
 class Opened(webapp2.RequestHandler):
     def post(self):
@@ -58,7 +60,8 @@ class Updater():
         gameUpdate = {
             'players': Player().getActiveNicknames(),
             'currNum': Game().getCurrentNumber(),
-            'guessMsg': 'Guess a number to start playing!'
+            'guessMsg': 'Guess a number to start playing!',
+            'leaderBoard': Player().leaderBoardStats()
         }
         return gameUpdate
 
@@ -274,6 +277,16 @@ class Player(db.Model):
         winner = self.getPlayerById(winner_id)
         winner.wins += 1
         winner.put()
+
+    def leaderBoardStats(self):
+        q = Player.all()
+        q.order("-wins")
+        q.order("+nickname")
+
+        leaderBoard = []
+        for p in q.run():
+            leaderBoard.append({'nickname': p.nickname.encode('ascii'), 'wins': p.wins})
+        return leaderBoard
 
 
 jinja_environment = jinja2.Environment(loader=jinja2.FileSystemLoader(os.path.dirname(__file__)))

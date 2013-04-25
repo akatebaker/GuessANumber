@@ -12,7 +12,8 @@
     var state =  {
         players: "{{ players }}",
         currNum: '{{ currentNum }}',
-        guessMsg: '{{ guessMsg }}'
+        guessMsg: '{{ guessMsg }}',
+        leaderBoard: '{{ leaderBoard }}'
     };
 
     onError = function(e) {
@@ -38,6 +39,7 @@
         state.players = data.players;
         state.currNum = data.currNum;
         state.guessMsg = data.guessMsg;
+        state.leaderBoard = data.leaderBoard;
         console.debug(state);
         updateGame();
     };
@@ -79,10 +81,12 @@
 
     socket = openChannel();
 </script>
+<h1>Game!</h1>
 You are logged in as {{ me }} <br>
 Currently Playing: <span id="playersSpan">{{ players }}</span><br>
 <div id="updateDiv">Guess a number to start playing!</div>
 Guess a number: <input type="text" id="guessBox" /><button onclick="guess()">Guess!</button><br>
 <a href='{{ logoutUrl }}'>Logout</a>
+<h1>Leaderboard</h1>
 </body>
 </html>
