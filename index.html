@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
-        "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+      "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
-    <title></title>
+   <title></title>
 </head>
 <body>
 <script type="text/javascript" src="/_ah/channel/jsapi"></script>
@@ -13,25 +13,25 @@
         players: "{{ players }}",
         currNum: '{{ currentNum }}',
         guessMsg: '{{ guessMsg }}',
-        leaderBoard: '{{ leaderBoard }}'
+        leaderBoard: '{{leaderBoard }}'
     };
 
-    onError = function(e) {
-        console.debug("Error: " + e.code + " " + e.description);
-    };
+   onError = function(e) {
+      console.debug("Error: " + e.code + " " + e.description);
+   };
 
-    sendMessage = function(path, opt_param) {
-        if (opt_param) {
-            path += opt_param;
-        }
+   sendMessage = function(path, opt_param) {
+      if (opt_param) {
+         path += opt_param;
+      }
 
-        var xhr = new XMLHttpRequest();
-        xhr.open('POST', path, true);
-        xhr.send();
-    };
+      var xhr = new XMLHttpRequest();
+      xhr.open('POST', path, true);
+      xhr.send();
+   };
 
-    onOpened = function() {
-    };
+   onOpened = function() {
+   };
 
     onMessage = function(message) {
         console.debug("message recieved");
@@ -44,42 +44,93 @@
         updateGame();
     };
 
-    onClose = function() {
-    };
+   onClose = function() {
+   };
 
-    updateGame = function() {
-        document.getElementById("playersSpan").innerHTML = state.players;
-        document.getElementById("updateDiv").innerHTML = state.guessMsg;
-    };
+   updateGame = function() {
+      document.getElementById("playersSpan").innerHTML = state.players;
+      document.getElementById("updateDiv").innerHTML = state.guessMsg;
 
-    rejoinChannel = function() {
-        socket.close();
-        openChannel()
-    };
+      var root = document.getElementById('leaderBoardSpan');
+      var table = document.getElementById('leaderBoardTable');
 
-    openChannel = function() {
-        channel = new goog.appengine.Channel('{{ token }}');
-        socket = channel.open();
-        socket.onopen = onOpened;
-        socket.onmessage = onMessage;
-        socket.onerror = onError;
-        socket.onclose = onClose;
+      if(table){
+         root.removeChild(table);
+      }
 
-        return socket;
-    }
+      var tab = document.createElement('table');
+      tab.style.border = '1px solid #000';
+      tab.setAttribute('id', "leaderBoardTable");
+      tab.className = "leaderBoardTable";
 
-    moveInSquare = function(id) {
-        if (isMyMove() && state.board[id] == ' ') {
-            sendMessage('/move', 'i=' + id);
-        }
-    }
+      var thead = document.createElement('thead');
+      var row, cell;
+      row = document.createElement('tr');
 
-    guess = function() {
-        var guess = guessBox.value;
-        sendMessage('/guess', '?guess=' + guess);
-    }
+      cell = document.createElement('th');
+      cell.style.border = '1px solid #000';
+      cell.appendChild(document.createTextNode('NICKNAME'));
+      row.appendChild(cell);
 
-    socket = openChannel();
+      cell = document.createElement('th');
+      cell.style.border = '1px solid #000';
+      cell.appendChild(document.createTextNode('WINS'));
+      row.appendChild(cell);
+
+      thead.appendChild(row);
+      tab.appendChild(thead);
+
+
+      var tbo = document.createElement('tbody');
+
+
+      for (var i = 0; i < state.leaderBoard.length; i++) {
+         row = document.createElement('tr');
+
+         cell = document.createElement('td');
+         cell.style.border = '1px solid #000';
+         cell.appendChild(document.createTextNode(state.leaderBoard[0].nickname));
+         row.appendChild(cell);
+
+         cell = document.createElement('td');
+         cell.style.border = '1px solid #000';
+         cell.appendChild(document.createTextNode(state.leaderBoard[0].wins));
+         row.appendChild(cell);
+
+         tbo.appendChild(row);
+      }
+      tab.appendChild(tbo);
+      root.appendChild(tab);
+   };
+
+   rejoinChannel = function() {
+      socket.close();
+      openChannel()
+   };
+
+   openChannel = function() {
+      channel = new goog.appengine.Channel('{{ token }}');
+      socket = channel.open();
+      socket.onopen = onOpened;
+      socket.onmessage = onMessage;
+      socket.onerror = onError;
+      socket.onclose = onClose;
+
+      return socket;
+   }
+
+   moveInSquare = function(id) {
+      if (isMyMove() && state.board[id] == ' ') {
+         sendMessage('/move', 'i=' + id);
+      }
+   }
+
+   guess = function() {
+      var guess = guessBox.value;
+      sendMessage('/guess', '?guess=' + guess);
+   }
+
+   socket = openChannel();
 </script>
 <h1>Game!</h1>
 You are logged in as {{ me }} <br>
@@ -88,5 +139,6 @@ Currently Playing: <span id="playersSpan">{{ players }}</span><br>
 Guess a number: <input type="text" id="guessBox" /><button onclick="guess()">Guess!</button><br>
 <a href='{{ logoutUrl }}'>Logout</a>
 <h1>Leaderboard</h1>
+<span id="leaderBoardSpan"></span>
 </body>
 </html>

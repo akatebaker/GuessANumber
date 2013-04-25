@@ -281,7 +281,7 @@ class Player(db.Model):
     def leaderBoardStats(self):
         q = Player.all()
         q.order("-wins")
-        q.order("+nickname")
+        q.order("nickname")
 
         leaderBoard = []
         for p in q.run():
