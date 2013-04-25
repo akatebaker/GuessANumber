@@ -65,8 +65,6 @@ class Updater():
     def get_guess_msg(self, guessVal, guess):
         if guessVal is None:
             msg = str(guess) + " is not a number!"
-        elif guessVal == 0:
-            msg = "You Won!"
         elif guessVal > 0:
             msg = str(guess) + " is too Low!"
         elif guessVal < 0:
@@ -88,6 +86,19 @@ class Updater():
         allPlayers = Player().getActiveIds()
         for client_id in allPlayers:
             channel.send_message(client_id, message)
+
+    def won(self, correctNum, winner_id):
+        message = self.get_game_message()
+        winner = Player().getPlayerById(winner_id)
+
+        allPlayers = Player().getActiveIds()
+        for client_id in allPlayers:
+            if winner_id == client_id:
+                message['guessMsg'] = "Congratulations! You won!"
+                channel.send_message(client_id, json.dumps(message))
+            else:
+                message['guessMsg'] = "Game Over! " + winner.nickname + ". The number was " + str(correctNum)
+                channel.send_message(client_id, json.dumps(message))
 
 
 class AddToChannel(webapp2.RequestHandler):
@@ -111,15 +122,15 @@ class Guess(webapp2.RequestHandler):
         currentNumber = int(Game().getCurrentNumber())
         guessVal = currentNumber - int(guess)
 
-        if(guessVal == 0):
-            game = Game().getCurrentGame()
-            game.active = False
-            game.put()
-            currentUser = users.get_current_user()
-
         try:
             guess = int(float(guess))
-            Updater().sendGuessUpdate(client_id, guessVal, guess)
+
+            if guessVal == 0:
+                Game().won(client_id)
+                Player().won(client_id)
+                Updater().won(currentNumber, client_id)
+            else:
+                Updater().sendGuessUpdate(client_id, guessVal, guess)
         except ValueError:
             Updater().sendGuessUpdate(client_id, None, guess)
 
@@ -128,6 +139,20 @@ class Game(db.Model):
     currentNumber = db.IntegerProperty()
     gameId = db.IntegerProperty()
     active = db.BooleanProperty()
+    winner = db.StringProperty()
+
+    def createNewGame(self):
+        gameId = self.getMaxGameId()
+        if not gameId:
+            gameId = 1
+        else:
+            gameId += 1
+
+        game = Game(currentNumber=self.getRandomNumber(),
+                    gameId=gameId, active=True)
+        game.put()
+
+        return game
 
     def getCurrentGame(self):
         q = Game.all()
@@ -135,9 +160,7 @@ class Game(db.Model):
         game = q.get()
 
         if not game:
-            game = Game(currentNumber=self.getRandomNumber(),
-                        gameId=1, active=True)
-            game.put()
+            game = self.createNewGame()
 
         return game
 
@@ -150,8 +173,30 @@ class Game(db.Model):
 
         return game.currentNumber
 
+    def getCurrentGameId(self):
+        game = self.getCurrentGame()
+        if game:
+            return game.gameId
+        else:
+            return None
+
+    def getMaxGameId(self):
+        q = Game.all()
+        q.order("-gameId")
+        game = q.get()
+
+        if game:
+            return game.gameId
+        else:
+            return None
+
     def getRandomNumber(self):
         return random.randint(1, 100)
+
+    def won(self, winner_id):
+        game = self.getCurrentGame()
+        game.winner = winner_id
+        game.active = False
 
 
 class Player(db.Model):
@@ -197,20 +242,12 @@ class Player(db.Model):
 
         return ids
 
-    def incrementWins(self, client_id):
-        player = self.getPlayerById(client_id)
-        player.wins = player.wins + 1
-        player.put()
-
     def updatePlayer(self, client_id, currentUser, add):
         newPlayer = self.getPlayerById(client_id)
         currentGameId = Game().getCurrentGame().gameId
 
         if add:
-            newPlayer.active = True
-            if newPlayer and newPlayer.mostRecentGame != currentGameId:
-                newPlayer.totalGames += 1
-            elif not newPlayer and currentUser:
+            if not newPlayer and currentUser:
                 if client_id == currentUser.user_id():
                     newPlayer = Player(
                         user_id=client_id,
@@ -219,6 +256,11 @@ class Player(db.Model):
                         active=True,
                         wins=0,
                         totalGames=1)
+            elif newPlayer and newPlayer.mostRecentGame != currentGameId:
+                newPlayer.active = True
+                newPlayer.totalGames += 1
+            else:
+                newPlayer.active = True
         elif newPlayer:
             print "removing player " + newPlayer.nickname
             newPlayer.active = False
@@ -227,6 +269,11 @@ class Player(db.Model):
             newPlayer.put()
 
         Updater().sendUpdates()
+
+    def won(self, winner_id):
+        winner = self.getPlayerById(winner_id)
+        winner.wins += 1
+        winner.put()
 
 
 jinja_environment = jinja2.Environment(loader=jinja2.FileSystemLoader(os.path.dirname(__file__)))
