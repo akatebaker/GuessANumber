@@ -9,48 +9,45 @@
 <body>
 <script type="text/javascript" src="/_ah/channel/jsapi"></script>
 <script type="text/javascript">
-    var state = {
-        players: '{{ players }}',
-        currNumber: '{{ currNumber }}'
+    var state =  {
+        players: "{{ players }}",
+        currNum: '{{ currentNum }}'
     };
 
-    var socket = openChannel();
-    socket.onopen = onOpened;
-    socket.onmessage = onMessage;
-    socket.onerror = onError;
-    socket.onclose = onClose;
-
-    onError = function (e) {
-        alert("Error: " + e.code + " " + e.description);
+    onError = function(e) {
+        console.debug("Error: " + e.code + " " + e.description);
     };
 
-    sendMessage = function (path, opt_param) {
-        if (!path) {
-            path = '/';
-        }
+    sendMessage = function(path, opt_param) {
+        path += '';
 
         var xhr = new XMLHttpRequest();
         xhr.open('POST', path, true);
         xhr.send();
     };
 
-    onOpened = function () {};
+    onOpened = function() {
+        sendMessage('opened');
+    };
 
-    onMessage = function (message) {
+    onMessage = function(message) {
+        console.debug("message recieved");
         var data = JSON.parse(message.data);
         state.players = data.players;
-        state.currNumber = data.currNumber;
+        state.currNum = data.currNum;
+        console.debug(state);
         updateGame();
     };
 
-    onClose = function () {};
-
-    updateGame = function () {
-        document.getElementById("playersSpan").innerHTML = state.players;
-        document.getElementById("numberSpan").innerHTML = state.currNumber;
+    onClose = function() {
     };
 
-    rejoinChannel = function () {
+    updateGame = function() {
+        document.getElementById("playersSpan").innerHTML = state.players;
+        document.getElementById("numberSpan").innerHTML = state.currNum;
+    };
+
+    rejoinChannel = function() {
         socket.close();
         openChannel()
     };
@@ -58,20 +55,26 @@
     openChannel = function() {
         channel = new goog.appengine.Channel('{{ token }}');
         socket = channel.open();
+        socket.onopen = onOpened;
+        socket.onmessage = onMessage;
+        socket.onerror = onError;
+        socket.onclose = onClose;
 
         return socket;
     }
 
-    moveInSquare = function (id) {
+    moveInSquare = function(id) {
         if (isMyMove() && state.board[id] == ' ') {
             sendMessage('/move', 'i=' + id);
         }
     }
+
+    socket = openChannel();
 </script>
 players: <span id="playersSpan">{{ players }}</span><br>
-currentNumber: <span id="numberSpan">{{ currNumber }}</span><br>
+currentNumber: <span id="numberSpan">{{ currentNum }}</span><br>
 me: {{ me }}<br>
 token: {{ token }} <br>
-<a href="" onclick="rejoinChannel()">Rejoin Channel</a>
+<a href='{{ logoutUrl }}'>Logout</a>
 </body>
 </html>

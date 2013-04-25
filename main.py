@@ -34,13 +34,14 @@ class MainPage(webapp2.RequestHandler):
         Player().updatePlayer(currentUser.user_id(), currentUser, True)
 
         token = channel.create_channel(currentUser.user_id())
-        allPlayers = Player().getActivePlayers()
+        allPlayers = Player().getActiveNicknames()
         currentNumber = Game().getCurrentNumber()
 
         template_values = {'players': allPlayers,
                            'me': currentUser.user_id(),
                            'currentNum': currentNumber,
-                           'token': token}
+                           'token': token,
+                           'logoutUrl': users.create_logout_url(self.request.uri)}
         template = jinja_environment.get_template('index.html')
         self.response.out.write(template.render(template_values))
 
@@ -56,7 +57,7 @@ class Updater():
     def get_game_message(self):
         gameUpdate = {
             'players': Player().getActiveNicknames(),
-            'currentNumber': Game().getCurrentNumber()
+            'currNum': Game().getCurrentNumber()
         }
         return json.dumps(gameUpdate)
 
@@ -69,6 +70,7 @@ class Updater():
 
         allPlayers = Player().getActiveIds()
         for client_id in allPlayers:
+            print "send message: " + client_id + " -- " + message
             channel.send_message(client_id, message)
 
 
@@ -76,14 +78,14 @@ class AddToChannel(webapp2.RequestHandler):
     def post(self):
         client_id = self.request.get('from')
 
-        Player().updatePlayer(client_id, None, True)
+        Player().updatePlayer(client_id.encode('ascii'), None, True)
 
 
 class RemoveFromChannel(webapp2.RequestHandler):
     def post(self):
         client_id = self.request.get('from')
 
-        Player().updatePlayer(client_id, None, False)
+        Player().updatePlayer(client_id.encode('ascii'), None, False)
 
 
 class Game(db.Model):
@@ -124,7 +126,7 @@ class Player(db.Model):
 
     def getPlayerById(self, client_id):
         q = Player.all()
-        q.filter("user_id=", client_id)
+        q.filter("user_id = ", client_id)
         player = q.get()
 
         return player
@@ -132,7 +134,7 @@ class Player(db.Model):
     def getActivePlayers(self):
         allPlayers = []
         q = Player.all()
-        q.filter("active =", True)
+        q.filter("active = ", True)
 
         for p in q.run():
             allPlayers.append(p)
@@ -144,7 +146,7 @@ class Player(db.Model):
         allPlayers = self.getActivePlayers()
 
         for p in allPlayers:
-            nicknames.append(p.nickname)
+            nicknames.append(p.nickname.encode('ascii'))
 
         return nicknames
 
@@ -153,7 +155,7 @@ class Player(db.Model):
         allPlayers = self.getActivePlayers()
 
         for p in allPlayers:
-            ids.append(p.user_id)
+            ids.append(p.user_id.encode('ascii'))
 
         return ids
 
@@ -175,6 +177,7 @@ class Player(db.Model):
                         wins=0,
                         totalGames=1)
         elif newPlayer:
+            print "removing player " + newPlayer.nickname
             newPlayer.active = False
 
         if newPlayer:
