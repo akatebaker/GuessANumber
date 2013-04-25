@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+        "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <title></title>
+</head>
+<body>
+<script type="text/javascript" src="/_ah/channel/jsapi"></script>
+<script type="text/javascript">
+    var state = {
+        players: '{{ players }}',
+        currNumber: '{{ currNumber }}'
+    };
+
+    var socket = openChannel();
+    socket.onopen = onOpened;
+    socket.onmessage = onMessage;
+    socket.onerror = onError;
+    socket.onclose = onClose;
+
+    onError = function (e) {
+        alert("Error: " + e.code + " " + e.description);
+    };
+
+    sendMessage = function (path, opt_param) {
+        if (!path) {
+            path = '/';
+        }
+
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', path, true);
+        xhr.send();
+    };
+
+    onOpened = function () {};
+
+    onMessage = function (message) {
+        var data = JSON.parse(message.data);
+        state.players = data.players;
+        state.currNumber = data.currNumber;
+        updateGame();
+    };
+
+    onClose = function () {};
+
+    updateGame = function () {
+        document.getElementById("playersSpan").innerHTML = state.players;
+        document.getElementById("numberSpan").innerHTML = state.currNumber;
+    };
+
+    rejoinChannel = function () {
+        socket.close();
+        openChannel()
+    };
+
+    openChannel = function() {
+        channel = new goog.appengine.Channel('{{ token }}');
+        socket = channel.open();
+
+        return socket;
+    }
+
+    moveInSquare = function (id) {
+        if (isMyMove() && state.board[id] == ' ') {
+            sendMessage('/move', 'i=' + id);
+        }
+    }
+</script>
+players: <span id="playersSpan">{{ players }}</span><br>
+currentNumber: <span id="numberSpan">{{ currNumber }}</span><br>
+me: {{ me }}<br>
+token: {{ token }} <br>
+<a href="" onclick="rejoinChannel()">Rejoin Channel</a>
+</body>
+</html>
