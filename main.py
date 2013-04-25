@@ -26,7 +26,6 @@ from google.appengine.api import users
 
 class MainPage(webapp2.RequestHandler):
     def get(self):
-        print "MAIN PAGE GET"
         currentUser = users.get_current_user()
         if not currentUser:
             self.redirect(users.create_login_url(self.request.uri))
@@ -48,7 +47,6 @@ class MainPage(webapp2.RequestHandler):
 
 class Opened(webapp2.RequestHandler):
     def post(self):
-        print "OPENED"
         return
 
 
@@ -56,38 +54,36 @@ class Updater():
     game = None
 
     def get_game_message(self):
-        print "GET GAME MESSAGE"
         gameUpdate = {
-            'players': Player().getActivePlayers(),
+            'players': Player().getActiveNicknames(),
             'currentNumber': Game().getCurrentNumber()
         }
         return json.dumps(gameUpdate)
 
     def sendUpdate(self, client_id):
-        print "SEND UPDATE"
         message = self.get_game_message()
-        print "send message -- client_id: " + client_id + " & message: " + message
         channel.send_message(client_id, message)
+
+    def sendUpdates(self):
+        message = self.get_game_message()
+
+        allPlayers = Player().getActiveIds()
+        for client_id in allPlayers:
+            channel.send_message(client_id, message)
 
 
 class AddToChannel(webapp2.RequestHandler):
     def post(self):
-        print "Add to channel POST"
         client_id = self.request.get('from')
 
         Player().updatePlayer(client_id, None, True)
 
-        Updater().sendUpdate(client_id)
-
 
 class RemoveFromChannel(webapp2.RequestHandler):
     def post(self):
-        print "Remove from channel POST"
         client_id = self.request.get('from')
 
         Player().updatePlayer(client_id, None, False)
-
-        Updater().sendUpdate(client_id)
 
 
 class Game(db.Model):
@@ -127,38 +123,41 @@ class Player(db.Model):
     totalGames = db.IntegerProperty()
 
     def getPlayerById(self, client_id):
-        print "GET PLAYER BY ID: " + client_id
         q = Player.all()
         q.filter("user_id=", client_id)
         player = q.get()
 
-        if player:
-            print "GOT PLAYER: " + player
-        else:
-            print "GOT PLAYER: null"
         return player
 
     def getActivePlayers(self):
-        print "GET ACTIVE PLAYERS"
-
         allPlayers = []
         q = Player.all()
         q.filter("active =", True)
 
         for p in q.run():
-            print "Player: " + p.nickname
-            allPlayers.append(p.nickname)
+            allPlayers.append(p)
 
         return allPlayers
 
+    def getActiveNicknames(self):
+        nicknames = []
+        allPlayers = self.getActivePlayers()
+
+        for p in allPlayers:
+            nicknames.append(p.nickname)
+
+        return nicknames
+
+    def getActiveIds(self):
+        ids = []
+        allPlayers = self.getActivePlayers()
+
+        for p in allPlayers:
+            ids.append(p.user_id)
+
+        return ids
+
     def updatePlayer(self, client_id, currentUser, add):
-        print "client_id: " + client_id
-
-        if currentUser:
-            print "currentUser: " + currentUser.user_id()
-        else:
-            print "currentUser: null"
-
         newPlayer = self.getPlayerById(client_id)
         currentGameId = Game().getCurrentGame().gameId
 
@@ -166,7 +165,7 @@ class Player(db.Model):
             if newPlayer and newPlayer.mostRecentGame != currentGameId:
                 newPlayer.active = True
                 newPlayer.totalGames += 1
-            elif newPlayer is None and currentUser is not None:
+            elif not newPlayer and currentUser:
                 if client_id == currentUser.user_id():
                     newPlayer = Player(
                         user_id=client_id,
@@ -175,11 +174,13 @@ class Player(db.Model):
                         active=True,
                         wins=0,
                         totalGames=1)
-        elif newPlayer is not None:
+        elif newPlayer:
             newPlayer.active = False
 
-        if newPlayer is not None:
+        if newPlayer:
             newPlayer.put()
+
+        Updater().sendUpdates()
 
 
 jinja_environment = jinja2.Environment(loader=jinja2.FileSystemLoader(os.path.dirname(__file__)))
