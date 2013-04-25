@@ -61,23 +61,26 @@ class Updater():
         }
         return gameUpdate
 
-    def get_guess_msg(self, guessVal):
+    def get_guess_msg(self, guessVal, guess):
         if guessVal is None:
-            msg = "That's not a number!"
+            msg = str(guess) + " is not a number!"
         elif guessVal == 0:
-            msg = "You Won!"
+            msg = "You Won! Begin a new game by guessing another number."
+            game = Game().getCurrentGame()
+            game.active = False
+            game.save()
         elif guessVal > 0:
-            msg = "Too Low!"
+            msg = str(guess) + " is too Low!"
         elif guessVal < 0:
-            msg = "Too High!"
+            msg = str(guess) + " is too High!"
         else:
             msg = "Eek!"
 
         return msg
 
-    def sendGuessUpdate(self, client_id, guessVal):
+    def sendGuessUpdate(self, client_id, guessVal, guess):
         msg = self.get_game_message()
-        msg['guessMsg'] = self.get_guess_msg(guessVal)
+        msg['guessMsg'] = self.get_guess_msg(guessVal, guess)
 
         channel.send_message(client_id, json.dumps(msg))
 
@@ -111,22 +114,24 @@ class Guess(webapp2.RequestHandler):
 
         try:
             guess = int(float(guess))
-            Updater().sendGuessUpdate(client_id, currentNumber - guess)
+            Updater().sendGuessUpdate(client_id, currentNumber - guess, guess)
         except ValueError:
-            Updater().sendGuessUpdate(client_id, None)
+            Updater().sendGuessUpdate(client_id, None, guess)
 
 
 class Game(db.Model):
     currentNumber = db.IntegerProperty()
     gameId = db.IntegerProperty()
+    active = db.BooleanProperty()
 
     def getCurrentGame(self):
         q = Game.all()
+        q.filter("active = ", True)
         game = q.get()
 
         if not game:
             game = Game(currentNumber=self.getRandomNumber(),
-                        gameId=1)
+                        gameId=1, active=True)
             game.put()
 
         return game
