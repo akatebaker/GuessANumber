@@ -12,7 +12,7 @@
     var state =  {
         players: "{{ players }}",
         currNum: '{{ currentNum }}',
-        guessMsg: ''
+        guessMsg: '{{ guessMsg }}'
     };
 
     onError = function(e) {
@@ -81,7 +81,7 @@
 </script>
 You are logged in as {{ me }} <br>
 Currently Playing: <span id="playersSpan">{{ players }}</span><br>
-<div id="updateDiv"></div>
+<div id="updateDiv">Begin by guessing a number</div>
 Guess a number: <input type="text" id="guessBox" /><button onclick="guess()">Guess!</button><br>
 <a href='{{ logoutUrl }}'>Logout</a>
 </body>
