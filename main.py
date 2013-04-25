@@ -38,7 +38,7 @@ class MainPage(webapp2.RequestHandler):
         currentNumber = Game().getCurrentNumber()
 
         template_values = {'players': allPlayers,
-                           'me': currentUser.user_id(),
+                           'me': currentUser.nickname(),
                            'currentNum': currentNumber,
                            'token': token,
                            'logoutUrl': users.create_logout_url(self.request.uri)}
@@ -59,18 +59,33 @@ class Updater():
             'players': Player().getActiveNicknames(),
             'currNum': Game().getCurrentNumber()
         }
-        return json.dumps(gameUpdate)
+        return gameUpdate
 
-    def sendUpdate(self, client_id):
-        message = self.get_game_message()
-        channel.send_message(client_id, message)
+    def get_guess_msg(self, guessVal):
+        if guessVal is None:
+            msg = "That's not a number!"
+        elif guessVal == 0:
+            msg = "You Won!"
+        elif guessVal > 0:
+            msg = "Too Low!"
+        elif guessVal < 0:
+            msg = "Too High!"
+        else:
+            msg = "Eek!"
+
+        return msg
+
+    def sendGuessUpdate(self, client_id, guessVal):
+        msg = self.get_game_message()
+        msg['guessMsg'] = self.get_guess_msg(guessVal)
+
+        channel.send_message(client_id, json.dumps(msg))
 
     def sendUpdates(self):
-        message = self.get_game_message()
+        message = json.dumps(self.get_game_message())
 
         allPlayers = Player().getActiveIds()
         for client_id in allPlayers:
-            print "send message: " + client_id + " -- " + message
             channel.send_message(client_id, message)
 
 
@@ -86,6 +101,19 @@ class RemoveFromChannel(webapp2.RequestHandler):
         client_id = self.request.get('from')
 
         Player().updatePlayer(client_id.encode('ascii'), None, False)
+
+
+class Guess(webapp2.RequestHandler):
+    def post(self):
+        client_id = users.get_current_user().user_id()
+        guess = self.request.get('guess').encode('ascii')
+        currentNumber = int(Game().getCurrentNumber())
+
+        try:
+            guess = int(float(guess))
+            Updater().sendGuessUpdate(client_id, currentNumber - guess)
+        except ValueError:
+            Updater().sendGuessUpdate(client_id, None)
 
 
 class Game(db.Model):
@@ -192,5 +220,5 @@ app = webapp2.WSGIApplication(
     [('/', MainPage),
      ('/_ah/channel/connected/', AddToChannel),
      ('/_ah/channel/disconnected/', RemoveFromChannel),
-     ('/opened', Opened)
+     ('/guess', Guess)
     ], debug=True)

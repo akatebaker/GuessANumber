@@ -11,7 +11,8 @@
 <script type="text/javascript">
     var state =  {
         players: "{{ players }}",
-        currNum: '{{ currentNum }}'
+        currNum: '{{ currentNum }}',
+        guessMsg: ''
     };
 
     onError = function(e) {
@@ -19,7 +20,9 @@
     };
 
     sendMessage = function(path, opt_param) {
-        path += '';
+        if (opt_param) {
+            path += opt_param;
+        }
 
         var xhr = new XMLHttpRequest();
         xhr.open('POST', path, true);
@@ -27,7 +30,6 @@
     };
 
     onOpened = function() {
-        sendMessage('opened');
     };
 
     onMessage = function(message) {
@@ -35,6 +37,7 @@
         var data = JSON.parse(message.data);
         state.players = data.players;
         state.currNum = data.currNum;
+        state.guessMsg = data.guessMsg;
         console.debug(state);
         updateGame();
     };
@@ -44,7 +47,7 @@
 
     updateGame = function() {
         document.getElementById("playersSpan").innerHTML = state.players;
-        document.getElementById("numberSpan").innerHTML = state.currNum;
+        document.getElementById("updateDiv").innerHTML = state.guessMsg;
     };
 
     rejoinChannel = function() {
@@ -69,12 +72,17 @@
         }
     }
 
+    guess = function() {
+        var guess = guessBox.value;
+        sendMessage('/guess', '?guess=' + guess);
+    }
+
     socket = openChannel();
 </script>
-players: <span id="playersSpan">{{ players }}</span><br>
-currentNumber: <span id="numberSpan">{{ currentNum }}</span><br>
-me: {{ me }}<br>
-token: {{ token }} <br>
+You are logged in as {{ me }} <br>
+Currently Playing: <span id="playersSpan">{{ players }}</span><br>
+<div id="updateDiv"></div>
+Guess a number: <input type="text" id="guessBox" /><button onclick="guess()">Guess!</button><br>
 <a href='{{ logoutUrl }}'>Logout</a>
 </body>
 </html>
