@@ -57,7 +57,8 @@ class Updater():
     def get_game_message(self):
         gameUpdate = {
             'players': Player().getActiveNicknames(),
-            'currNum': Game().getCurrentNumber()
+            'currNum': Game().getCurrentNumber(),
+            'guessMsg': 'Guess a number to start playing!'
         }
         return gameUpdate
 
@@ -65,10 +66,7 @@ class Updater():
         if guessVal is None:
             msg = str(guess) + " is not a number!"
         elif guessVal == 0:
-            msg = "You Won! Begin a new game by guessing another number."
-            game = Game().getCurrentGame()
-            game.active = False
-            game.save()
+            msg = "You Won!"
         elif guessVal > 0:
             msg = str(guess) + " is too Low!"
         elif guessVal < 0:
@@ -111,10 +109,17 @@ class Guess(webapp2.RequestHandler):
         client_id = users.get_current_user().user_id()
         guess = self.request.get('guess').encode('ascii')
         currentNumber = int(Game().getCurrentNumber())
+        guessVal = currentNumber - int(guess)
+
+        if(guessVal == 0):
+            game = Game().getCurrentGame()
+            game.active = False
+            game.put()
+            currentUser = users.get_current_user()
 
         try:
             guess = int(float(guess))
-            Updater().sendGuessUpdate(client_id, currentNumber - guess, guess)
+            Updater().sendGuessUpdate(client_id, guessVal, guess)
         except ValueError:
             Updater().sendGuessUpdate(client_id, None, guess)
 
@@ -192,13 +197,18 @@ class Player(db.Model):
 
         return ids
 
+    def incrementWins(self, client_id):
+        player = self.getPlayerById(client_id)
+        player.wins = player.wins + 1
+        player.put()
+
     def updatePlayer(self, client_id, currentUser, add):
         newPlayer = self.getPlayerById(client_id)
         currentGameId = Game().getCurrentGame().gameId
 
         if add:
+            newPlayer.active = True
             if newPlayer and newPlayer.mostRecentGame != currentGameId:
-                newPlayer.active = True
                 newPlayer.totalGames += 1
             elif not newPlayer and currentUser:
                 if client_id == currentUser.user_id():
